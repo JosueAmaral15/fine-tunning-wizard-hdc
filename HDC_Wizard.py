@@ -1,3 +1,37 @@
+'''
+Author name: Josué Amaral
+Description: Hyperdimensional Computing (HDC) Wizard Classifier
+Date: 2025-07-14
+Version: 1.0
+
+This code implements a Hyperdimensional Computing (HDC) Wizard Classifier for
+student use, which uses hyperdimensional vectors to classify data. It includes
+methods for binding, bundling, and encoding data, as well as training and
+predicting classes using HDC techniques. It also includes a controller class to
+manage the data processing and evaluation of the model. This code is designed
+to be modular and extensible, allowing for easy integration with various
+datasets and classification tasks.
+
+Hyperdimensional Computing (HDC) Wizard Classifier
+
+This code is part of a larger project that explores the use of HDC for
+classification tasks, including the implementation of a Wizard Dictionary
+classifier. The code is structured to allow for easy modification and
+extension, making it suitable for research and experimentation in the field of
+HDC.
+
+This code is released under the MIT License. You are free to use, modify, and
+distribute this code as long as you include the original copyright notice and
+this permission notice in any copies or substantial portions of the code. The
+code is provided "as is", without warranty of any kind, express or implied,
+including but not limited to the warranties of merchantability, fitness for a
+particular purpose, and noninfringement. In no event shall the authors or
+copyright holders be liable for any claim, damages, or other liability, whether
+in an action of contract, tort, or otherwise, arising from, out of, or in
+connection with the code or the use or other dealings in the code.
+
+'''
+
 from collections import defaultdict, Counter
 import matplotlib.pyplot as plt
 import numpy as np
@@ -5,7 +39,6 @@ import pandas as pd
 import seaborn as sns
 #from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
 from ucimlrepo import fetch_ucirepo
@@ -125,9 +158,11 @@ class HDCClassificador:
 
         return self.assemble.bundling(vetores)
     
-    def treinar(self, X, y):
+    def train(self, X, y):
         prototipos = defaultdict(list)
+        #print(f"y: {y}")
         for exemplo, classe in zip(X, y):
+            #print(f"exemplo: {exemplo}, classe: {classe}")
             vetor = self._codificar_exemplo(exemplo)
             prototipos[classe].append(vetor)
 
@@ -135,7 +170,7 @@ class HDCClassificador:
             classe: self.assemble.bundling(vetores) for classe, vetores in prototipos.items()
         }
 
-    def prever(self, X):
+    def predict(self, X):
         predicoes = []
         for exemplo in X:
             vetor = self._codificar_exemplo(exemplo)
@@ -149,71 +184,16 @@ class HDCClassificador:
             predicoes.append(melhor_classe)
         return predicoes
     
-# Função de avaliação completa
-def avaliar_modelo(nome, y_true, y_pred, nomes_classes, show_confusion_matrix=True):
-    acc = accuracy_score(y_true, y_pred)
-    prec = precision_score(y_true, y_pred, average='macro', zero_division=0)
-    rec = recall_score(y_true, y_pred, average='macro', zero_division=0)
-    f1 = f1_score(y_true, y_pred, average='macro', zero_division=0)
-
-    print(f"\n=== {nome} ===")
-    print(f"Acurácia: {acc:.4f}")
-    print(f"Precisão: {prec:.4f}")
-    print(f"Recall: {rec:.4f}")
-    print(f"F1-score: {f1:.4f}")
-
-    if show_confusion_matrix:
-        cm = confusion_matrix(y_true, y_pred)
-        plt.figure(figsize=(5, 4))
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=nomes_classes, yticklabels=nomes_classes)
-        plt.title(f'Matriz de Confusão - {nome}')
-        plt.ylabel('Verdadeiro')
-        plt.xlabel('Previsto')
-        plt.show()
-
-def processar_id(identificador_dataset, limite_amostras=None):
-    # Busca dataset pelo identificador da UCI
-    dataset = fetch_ucirepo(id=identificador_dataset)
-
-    if dataset.data.targets is None:
-        print(f"Dataset '{identificador_dataset}' não tem rótulo. Pulando.")
-        return None, None, None, None
-
-    matriz_X = dataset.data.features.select_dtypes(include=[np.number]).dropna(axis=1).values
-    vetor_y = dataset.data.targets.iloc[:, 0].astype('category').cat.codes.values
-    nomes_classes = dataset.data.targets.iloc[:, 0].astype('category').cat.categories.tolist()
-    numero_classes = len(np.unique(vetor_y))
-
-    # Limitar a quantidade de amostras, se desejado
-    if limite_amostras is not None:
-        matriz_X = matriz_X[:limite_amostras]
-        vetor_y = vetor_y[:limite_amostras]
-
-    # Divide entre treino e teste
-    scaler = MinMaxScaler()
-    X_normalizado = scaler.fit_transform(matriz_X)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_normalizado, vetor_y, test_size=0.3, random_state=42, stratify=vetor_y
-    )
-
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-
-    total_entradas = X_train.shape[1]
-
-    return nomes_classes, numero_classes, X_train, y_train, Counter(y_train), X_test, y_test, Counter(y_test), total_entradas
-
-    
-# — Codificador Termômetro —
-class CodificadorTermometro:
+# — encoder Termômetro —
+class TermometerEncoder:
     def __init__(self, quantidade_bits):
-        # Define a quantidade de bits de resolução desejada para o codificador
+        # Define a quantidade de bits de resolução desejada para o encoder
         self.quantidade_bits = quantidade_bits
         self.valor_minimo = None
         self.valor_maximo = None
         self.incremento = None
 
-    def ajustar(self, matriz_entrada):
+    def adjust(self, matriz_entrada):
         # Armazena o valor mínimo de cada coluna
         self.valor_minimo = matriz_entrada.min(axis=0)
         # Armazena o valor máximo de cada coluna
@@ -253,15 +233,15 @@ class FiltroDicionario:
 
 # — Discriminador para cada classe —
 class Discriminador:
-    def __init__(self, total_de_bits, bits_por_endereco):
+    def __init__(self, total_de_bits, bits_per_address):
         # Garante que o total de bits seja múltiplo do tamanho do endereço
-        assert total_de_bits % bits_por_endereco == 0
-        self.bits_endereco = bits_por_endereco
+        assert total_de_bits % bits_per_address == 0
+        self.bits_endereco = bits_per_address
         self.quantidade_unidades = total_de_bits // self.bits_endereco
         # Inicializa os filtros para cada unidade
         self.filtros = [FiltroDicionario() for _ in range(self.quantidade_unidades)]
     
-    def treinar(self, vetor_binario):
+    def train(self, vetor_binario):
         total_bits_esperado = self.quantidade_unidades * self.bits_endereco
         tamanho_atual = vetor_binario.size
 
@@ -283,122 +263,162 @@ class Discriminador:
 # — Classificador Dictionary WiSARD —
 class ClassificadorWisard:
     
-    def __init__(self, total_de_entradas, numero_classes, bits_por_endereco, usar_branqueamento=False):
+    def __init__(self, total_entries, classes_number, bits_per_address, usar_branqueamento=False):
         self.usar_branqueamento = usar_branqueamento
         # Calcula o número de bits de preenchimento necessários
-        self.numero_bits_extras = ((total_de_entradas // bits_por_endereco) * bits_por_endereco - total_de_entradas) % bits_por_endereco
-        self.total_de_entradas = total_de_entradas + self.numero_bits_extras
+        self.number_extra_bits = ((total_entries // bits_per_address) * bits_per_address - total_entries) % bits_per_address
+        self.total_entries = total_entries + self.number_extra_bits
         # Gera ordem aleatória dos bits (incluindo os extras)
-        self.ordem_bits = np.arange(self.total_de_entradas)
+        self.ordem_bits = np.arange(self.total_entries)
+        print(f"Total de bits: {self.total_entries}, Bits extras: {self.number_extra_bits}, Ordem dos bits: {self.ordem_bits}")
         np.random.shuffle(self.ordem_bits)
-        # Inicializa os discriminadores para cada classe
-        self.discriminadores = [
-            Discriminador(self.total_de_entradas, bits_por_endereco)
-            for _ in range(numero_classes)
+        # Inicializa os discriminators para cada classe
+        self.discriminators = [
+            Discriminador(self.total_entries, bits_per_address)
+            for _ in range(classes_number)
         ]
 
     def _preparar(self, vetor):
         # Preenche o vetor e reordena os bits
-        vetor_preenchido = np.pad(vetor, (0, self.numero_bits_extras))[self.ordem_bits]
+        vetor_preenchido = np.pad(vetor, (0, self.number_extra_bits))[self.ordem_bits]
         return vetor_preenchido
 
-    def treinar(self, matriz_binaria, vetor_classes):
-        # Treina os discriminadores com os vetores
+    def train(self, matriz_binaria, vetor_classes):
+        # Treina os discriminators com os vetores
         for vetor, classe in zip(matriz_binaria, vetor_classes):
-            self.discriminadores[classe].treinar(self._preparar(vetor))
+            self.discriminators[classe].train(self._preparar(vetor))
 
         if self.usar_branqueamento:
             # Calcula os escores médios para branqueamento
             escores = []
             for vetor, classe in zip(matriz_binaria, vetor_classes):
-                escore = self.discriminadores[classe].pontuar(self._preparar(vetor))
+                escore = self.discriminators[classe].pontuar(self._preparar(vetor))
                 escores.append(escore)
             self.limiar_branqueamento = ceil(np.mean(escores))
-            # Atribui limiar aos discriminadores
-            for discriminador in self.discriminadores:
-                discriminador.bran = self.limiar_branqueamento
+            # Atribui limiar aos discriminators
+            for discriminator in self.discriminators:
+                discriminator.bran = self.limiar_branqueamento
 
-    def prever(self, matriz_binaria):
-        previsoes = []
+    def predict(self, matriz_binaria):
+        predictions = []
         for vetor in matriz_binaria:
-            # Calcula escore de todos os discriminadores
-            escores = [discriminador.pontuar(self._preparar(vetor)) for discriminador in self.discriminadores]
+            # Calcula escore de todos os discriminators
+            escores = [discriminator.pontuar(self._preparar(vetor)) for discriminator in self.discriminators]
             # Aplica branqueamento se necessário
             if self.usar_branqueamento:
-                escores = [escore if escore >= getattr(discriminador, 'bran', 0) else 0 for escore, discriminador in zip(escores, self.discriminadores)]
+                escores = [escore if escore >= getattr(discriminator, 'bran', 0) else 0 for escore, discriminator in zip(escores, self.discriminators)]
             # Seleciona o índice da maior pontuação
-            previsoes.append(int(np.argmax(escores)))
-        return np.array(previsoes)
+            predictions.append(int(np.argmax(escores)))
+        return np.array(predictions)
 
 # Classe Controladora Principal
 class ControllerMain:
     
-    def processar_id(self,identificador_dataset):
+    def process_input_data(self,dataset_identifier, normalize = False, first_normalize = True, termometer_encode = False, sample_limits=None):
+        
         # Busca dataset pelo identificador da UCI
-        dataset = fetch_ucirepo(id=identificador_dataset)
+        dataset = fetch_ucirepo(id=dataset_identifier)
+        
         # Seleciona somente colunas numéricas
         if dataset.data.targets is None:
-            print(f"Dataset '{identificador_dataset}' não tem rótulo. Pulando.")
+            print(f"Dataset '{dataset_identifier}' não tem rótulo. Pulando.")
             return None, None, None, None
 
         matriz_X = dataset.data.features.select_dtypes(include=[np.number]).dropna(axis=1).values
         vetor_y = dataset.data.targets.iloc[:,0].astype('category').cat.codes.values
         #nomes_colunas = dataset.data.features.columns.tolist()
-        nomes_classes = dataset.data.targets.iloc[:,0].astype('category').cat.categories.tolist()
-        numero_classes = len(np.unique(vetor_y))
+        classes_name = dataset.data.targets.iloc[:,0].astype('category').cat.categories.tolist()
+        classes_number = len(np.unique(vetor_y))
+        input_total_count = len(matriz_X)
 
+        # Limitar a quantidade de amostras, se desejado
+        if sample_limits is not None:
+            matriz_X = matriz_X[:sample_limits]
+            vetor_y = vetor_y[:sample_limits]
+        
+        if normalize:
+            scaler = MinMaxScaler()
+            matriz_X = scaler.fit_transform(matriz_X)
+            
         # Divide entre treino e teste
-        X_treino, X_teste, y_treino, y_teste = train_test_split(matriz_X, vetor_y, test_size=0.3, random_state=0, stratify=vetor_y)
+        #print(f"vetor_y: {vetor_y}")
+        X_train, X_test, y_train, y_test = train_test_split(matriz_X, vetor_y, test_size=0.3, random_state=0, stratify=vetor_y)
+        #print(f"X_train: {X_train}, X_test: {X_test}, y_train: {y_train}, y_test: {y_test}")
 
-        # Codifica com termômetro
-        codificador = CodificadorTermometro(20).ajustar(X_treino)
-        X_treino_bin = codificador.binarizar(X_treino)
-        X_teste_bin = codificador.binarizar(X_teste)
+        if termometer_encode:
+            encoder = TermometerEncoder(20).adjust(X_train)
+            
+        if first_normalize:
+            if normalize:
+                # Normaliza os dados
+                X_train = scaler.fit_transform(X_train)
+                X_test = scaler.transform(X_test)
 
-        total_entradas = X_treino_bin.shape[1]
-
-        return nomes_classes, numero_classes, total_entradas, X_treino, X_treino_bin, X_teste, X_teste_bin, y_treino, y_teste
-
-    def avaliar_modelo(self, vetor_real = None, vetor_predito = None, nomes_das_classes = None, titulo="Resultados da Classificação", show_confusion_matrix=True):
+            if termometer_encode:
+                # Codifica com termômetro
+                X_train = encoder.binarizar(X_train)
+                X_test = encoder.binarizar(X_test)
+        else:
+            if termometer_encode:
+                # Codifica com termômetro
+                X_train = encoder.binarizar(X_train)
+                X_test = encoder.binarizar(X_test)
+                
+            if normalize:
+                # Normaliza os dados
+                X_train = scaler.fit_transform(X_train)
+                X_test = scaler.transform(X_test)
         
-        if vetor_real is None:
-            vetor_real = self.y_teste
+        return X_train, X_test, y_train, y_test, classes_name, classes_number, Counter(y_train), Counter(y_test), input_total_count
+    
+    def avaliar_modelo(self, real_vector, vector_predicted, classes_name, titulo="Resultados da Classificação", show_confusion_matrix=True):
         
-        if vetor_predito is None:
-            vetor_predito = self.previsoes
+        # Imprime o relatório de classificação
+        acuracia = accuracy_score(real_vector, vector_predicted)
+        print("Relatório de Classificação:\nAcuracia: {:.2f}%".format(acuracia*100))
+        print(classification_report(real_vector, vector_predicted, target_names=classes_name))
         
-        if nomes_das_classes is None:
-            nomes_das_classes = self.nomes_classes
-
         if show_confusion_matrix:
             # Gera a matriz de confusão
-            matriz_confusao = confusion_matrix(vetor_real, vetor_predito)
+            matriz_confusao = confusion_matrix(real_vector, vector_predicted)
             plt.figure(figsize=(10, 8))
-            sns.heatmap(matriz_confusao, annot=True, fmt='g', cmap='Blues', xticklabels=nomes_das_classes, yticklabels=nomes_das_classes)
+            sns.heatmap(matriz_confusao, annot=True, fmt='g', cmap='Blues', xticklabels=classes_name, yticklabels=classes_name)
             plt.xlabel("Classe Predita")
             plt.ylabel("Classe verdadeira ou real")
             plt.title(f"Matriz de Confusão - {titulo}")
             plt.tight_layout()
             plt.show()
-        
-        # Imprime o relatório de classificação
-        acuracia = accuracy_score(vetor_real, vetor_predito)
-        print("Relatório de Classificação:\nAcuracia: {:.2f}%".format(acuracia*100))
-        print(classification_report(vetor_real, vetor_predito, target_names=nomes_das_classes))
     
-    def runWizard(self, X_treino_bin, y_treino, X_teste_bin, com_branqueamento = False):
-        wisard = ClassificadorWisard(total_entradas, numero_classes, bits_por_endereco=8, usar_branqueamento=com_branqueamento)
-        wisard.treinar(X_treino_bin, y_treino)
-        previsoes = wisard.prever(X_teste_bin)
+    def run_model(self, X_train, y_train, X_test, y_test, classes_name, model, model_name):
+
+        print(f"Iniciando treinamento do modelo {model_name}...")
+        model.train(X_train, y_train)
+        print("Treinamento concluído.\nPrevendo...")
+        predictions = model.predict(X_test)
+        print("Previsão concluída.\nAvaliando modelo...")
+        self.avaliar_modelo(y_test, predictions, classes_name)
+        print(f"Avaliação do modelo {model_name} concluída.\n")
         
-        return previsoes
-    
 # Programa principal para executar o código
 if __name__ == "__main__":
     PRINT_OTHER_OBSERVATIONS = False  # Variável para controlar a impressão de observações adicionais
     DIMENSION = 10000  # Definir a dimensionalidade dos vetores hiperdimensionais com tamanho típico em HDC:10000
     N_NIVEIS = 10  # Níveis de codificação termômetro
-        
+    HDC_MODELS_NAME = ["HDC - Record-based", "HDC - N-gram-based"]
+    HDC_MODES = ['record', 'ngram']
+    WIZARD_MESSAGE = ['Modelo wizard sem branqueamento', 'Modelo wizard com branqueamento']
+    BLEACHING_MODE = [False, True]
+    
+    print_message = lambda X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count: f"""
+Total de classes: {classes_number}, nomes das classes: {classes_name}
+Quantidade de atributos/features: {X_train.shape[1]}, quantidade de amostras: {X_train.shape[0]}
+Quantidade de amostras de treino: {len(X_train)}, quantidade de amostras de teste: {len(X_test)}
+Total de amostras: {len(X_train) + len(X_test)}
+total de colunas/features: {input_total_count}
+Quantidade de amostras de treino por classe: {quantity_y_train}
+Quantidade de amostras de teste por classe: {quantity_y_test}
+        """
+    
     print(f"Dimensão dos vetores: {DIMENSION}")
     
     datasets = {
@@ -408,47 +428,33 @@ if __name__ == "__main__":
         #'cdc_diabetes_health': 891,
     }
     
-    for dataset, id_dataset in datasets.items():
-        nomes_classes, numero_classes, X_train, y_train, quantity_y_train, X_test, y_test, quantity_y_test, total_entradas = processar_id(id_dataset)
-        
-        print(f"""
-Nome da classe: {dataset}, total de colunas/features: {total_entradas}
-Classes: {nomes_classes}, quantidade de classes: {numero_classes}
-Quantidade de treino: {len(y_train)}, quantidade de teste: {len(y_test)}
-Níveis de codificação: {N_NIVEIS}""")
-    
-        # Record-based
-        hdc_record = HDCClassificador(d_dimensao=DIMENSION, n_niveis=N_NIVEIS, modo='record')
-        print("Iniciando treinamento record...")
-        hdc_record.treinar(X_train, y_train)
-        print("Treinamento concluído.\nPrevendo...")
-        pred_record = hdc_record.prever(X_test)
-        print("Previsão concluída.\nAvaliando modelo...")
-        avaliar_modelo("HDC - Record-based", y_test, pred_record, nomes_classes)
-        print("Avaliação record concluída.\n")
-        
-        # N-gram based
-        hdc_ngram = HDCClassificador(d_dimensao=DIMENSION, n_niveis=N_NIVEIS, modo='ngram')
-        print("Iniciando treinamento N-gram...")
-        hdc_ngram.treinar(X_train, y_train)
-        print("Treinamento concluído.\nPrevendo...")
-        pred_ngram = hdc_ngram.prever(X_test)
-        print("Previsão concluída.\nAvaliando modelo...")
-        avaliar_modelo("HDC - N-gram based", y_test, pred_ngram, nomes_classes)
-        print("Avaliação N-gram concluída.\n")
-        
-    
-    # Utilizando o modelo Wizard Dictionary para a classificação dos datasets
-    print("\n=== Classificação com Wizard Dictionary ===")
     controller = ControllerMain()
-
-    for nome_dataset, identificador in datasets.items():
-        print(f"\nProcessando {nome_dataset} (id={identificador}) …")
-        acuracia0, acuracia1, limiar, frequencia_classes = controller.processar_id(identificador)
+    
+    for dataset, id_dataset in datasets.items():
+        print(f"""
+Nome da classe: {dataset}, id da classe: {id_dataset}
+Dimensão dos vetores: {DIMENSION}
+Quantidade de níveis de codificação: {N_NIVEIS}
+        """)
         
-        if acuracia0 is not None and acuracia1 is not None and limiar is not None and frequencia_classes is not None:
-            print(f"Frequência das classes no treino: {frequencia_classes}")
-            print(f"Acurácia sem branqueamento: {acuracia0:.4f}")
-            print(f"Acurácia com branqueamento: {acuracia1:.4f} (limiar={limiar})")
-
-        controller.avaliar_modelo(titulo = f"resultado de classificação de {nome_dataset}")
+        print("\n=== Classificação com Computação Hiperdimensional (HDC) ===")
+        
+        X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = True, first_normalize = True, termometer_encode = False)
+        print_message(X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count)
+        
+        for model_name, mode in zip (HDC_MODELS_NAME, HDC_MODES):
+            print(f"\n=== Classificação com {model_name} ===")
+            hdc_record = HDCClassificador(d_dimensao=DIMENSION, n_niveis=N_NIVEIS, modo=mode)
+            controller.run_model(X_train, y_train, X_test, y_test, classes_name, hdc_record, model_name)
+            
+        # Utilizando o modelo Wizard Dictionary para a classificação dos datasets
+        print("\n=== Classificação com Wizard Dictionary ===")
+        
+        X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = False, first_normalize = False, termometer_encode = True)
+        print_message(X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count)
+        
+        for model_name, com_branqueamento in zip(WIZARD_MESSAGE,BLEACHING_MODE):
+            print(f"\n=== Classificação com {model_name} ===")
+            wisard = ClassificadorWisard(input_total_count, classes_number, bits_per_address = 8, usar_branqueamento=com_branqueamento)
+            controller.run_model(X_train, y_train, X_test, y_test, classes_name, wisard, model_name)
+        
