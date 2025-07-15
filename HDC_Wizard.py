@@ -489,7 +489,7 @@ class ControllerMain:
                         acc = accuracy_score(y_test, preds)
                         f1_score_value = f1_score(y_test, preds, average='weighted')
                         print(f"Acurácia: {acc:.4f}")
-                        if acc > best_hdc_score and f1_score_value > best_hdc_f1score or best_hdc_score == 0:  # Allow first model to set baseline
+                        if (acc > best_hdc_score and f1_score_value > best_hdc_f1score) or best_hdc_score == 0:  # Allow first model to set baseline
                             best_hdc_score = acc
                             best_hdc_f1score = f1_score_value
                             best_hdc_params = (dim, n_lvl, mode)
@@ -498,6 +498,11 @@ class ControllerMain:
             
             print(f"Melhor modelo HDC: Dimensão={best_hdc_params[0]}, Níveis={best_hdc_params[1]}, Modo={best_hdc_params[2]}, Acurácia={best_hdc_score:.4f}")
 
+            if best_hdc_score != 0: # Optionally, evaluate best models with controller's evaluation method
+                print("\nAvaliação do melhor modelo HDC:")
+                best_preds = best_hdc_model.predict(X_test)
+                controller.avaliar_modelo(y_test, best_preds, classes_name, titulo=f"Melhor Modelo HDC Fine-Tuned com {best_hdc_model_name}", show_confusion_matrix=show_confusion_matrix)
+            
             # Prepare data for Wisard models
             X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(
                 id_dataset, normalize=False, first_normalize=False, termometer_encode=True, random_state=0)
@@ -530,11 +535,6 @@ class ControllerMain:
                 print(f"Melhor modelo Wisard: Bits por endereço={best_wisard_params[0]}, Branqueamento={best_wisard_params[1]}, Acurácia={best_wisard_score:.4f}, nome do melhor modelo wizard: {best_wisard_model_name}.")
             else:
                 print("Nenhum modelo Wisard treinado com sucesso.")
-            
-            if best_hdc_score != 0: # Optionally, evaluate best models with controller's evaluation method
-                print("\nAvaliação do melhor modelo HDC:")
-                best_preds = best_hdc_model.predict(X_test)
-                controller.avaliar_modelo(y_test, best_preds, classes_name, titulo=f"Melhor Modelo HDC Fine-Tuned com {best_hdc_model_name}", show_confusion_matrix=show_confusion_matrix)
             
             if best_wisard_score != 0:
                 print("\nAvaliação do melhor modelo Wisard:")
@@ -638,7 +638,7 @@ if __name__ == "__main__":
     ENABLE_HIPERPARAMETER_TUNING = True  # Variável para controlar o fine-tuning dos hiperparâmetros
     PRINT_OTHER_OBSERVATIONS = False  # Variável para controlar a impressão de observações adicionais
     SHOW_CONFUSION_MATRIX = False  # Variável para controlar a exibição da matriz de confusão
-    EPOCHS = 20  # Número de épocas para o treinamento dos modelos HDC e Wizard
+    EPOCHS = 5  # Número de épocas para o treinamento dos modelos HDC e Wizard
     # Definições de hiperparâmetros para os modelos HDC e Wizard
     LEARNING_RATE = 0.02  # Taxa de aprendizado para o modelo HDC
     DIMENSION = 10000  # Definir a dimensionalidade dos vetores hiperdimensionais com tamanho típico em HDC:10000
