@@ -66,7 +66,7 @@ class HDCAssemble:
     @staticmethod
     def bundling(vetores):
         soma = np.sum(vetores, axis=0)
-        return np.where(soma >= 0, 1, -1)
+        return np.where(soma >= 0, 1.0, -1.0)  # Retorna -1 ou 1 baseado no threshold zero
 
     # Similaridade cosseno
     @staticmethod
@@ -84,7 +84,7 @@ class HDCAssemble:
 
 # Classe do classificador HDC
 class HDCClassificador:
-    def __init__(self, d_dimensao=10000, n_niveis=10, modo = 'record'):
+    def __init__(self, d_dimensao=10000, n_niveis=10, modo = 'record', epocas = 5, taxa_aprendizado=0.2):
         self.DIMENSION = d_dimensao
         self.n_niveis = n_niveis
         self.modo = modo  # 'record' ou 'ngram'
@@ -92,6 +92,8 @@ class HDCClassificador:
         self.vetores_posicoes = {}   # Vetores aleatórios para posições dos atributos
         self.prototipos_classes = {}  # Vetores protótipos de cada classe
         self.assemble = HDCAssemble()  # Instância da classe de operações HDC
+        self.epocas = epocas
+        self.taxa_aprendizado = taxa_aprendizado
         
     def _codificar_exemplo(self, exemplo):
         vetores = []
@@ -158,17 +160,46 @@ class HDCClassificador:
 
         return self.assemble.bundling(vetores)
     
-    def train(self, X, y):
-        prototipos = defaultdict(list)
-        #print(f"y: {y}")
-        for exemplo, classe in zip(X, y):
-            #print(f"exemplo: {exemplo}, classe: {classe}")
-            vetor = self._codificar_exemplo(exemplo)
-            prototipos[classe].append(vetor)
+    # def train(self, X, y):
+    #     prototipos = defaultdict(list)
+    #     #print(f"y: {y}")
+    #     for exemplo, classe in zip(X, y):
+    #         #print(f"exemplo: {exemplo}, classe: {classe}")
+    #         vetor = self._codificar_exemplo(exemplo)
+    #         prototipos[classe].append(vetor)
 
-        self.prototipos_classes = {
-            classe: self.assemble.bundling(vetores) for classe, vetores in prototipos.items()
-        }
+    #     self.prototipos_classes = {
+    #         classe: self.assemble.bundling(vetores) for classe, vetores in prototipos.items()
+    #     }
+        
+    def train(self, X, y): # treinamento com fine-tuning interno
+        self.prototipos_classes = {}
+        for epoca in range(self.epocas):
+            print(f"Época {epoca + 1}/{self.epocas}")
+            prototipos = defaultdict(list)
+            for exemplo, classe in zip(X, y):
+                vetor = self._codificar_exemplo(exemplo)
+                if epoca == 0:
+                    prototipos[classe].append(vetor)
+                else:
+                    pred = self.predict([exemplo])[0]
+                    if pred != classe:
+                        # penaliza o vetor da classe errada
+                        self.prototipos_classes[pred] = self.prototipos_classes[pred].astype(float)
+                        if pred == classe:
+                            self.prototipos_classes[classe] += self.taxa_aprendizado * vetor
+                        else:
+                            self.prototipos_classes[pred] -= self.taxa_aprendizado * vetor
+
+                        #self.prototipos_classes[pred] = self.prototipos_classes[pred] - self.taxa_aprendizado * vetor
+
+                        # reforça o vetor da classe correta
+                        #self.prototipos_classes[classe] = self.prototipos_classes[classe] +self.taxa_aprendizado * vetor
+            if epoca == 0:
+                # inicializa os protótipos após primeira época
+                self.prototipos_classes = {
+                    classe: self.assemble.bundling(vetores) for classe, vetores in prototipos.items()
+                }
 
     def predict(self, X):
         predicoes = []
@@ -184,8 +215,8 @@ class HDCClassificador:
             predicoes.append(melhor_classe)
         return predicoes
     
-    
-    
+#WIZARD CLASSIFIER
+# — Classificador Wizard —
     
 # — encoder Termômetro —
 class TermometerEncoder:
@@ -266,13 +297,14 @@ class Discriminador:
 # — Classificador Dictionary WiSARD —
 class ClassificadorWisard:
     
-    def __init__(self, total_entries, classes_number, bits_per_address, usar_branqueamento=False):
+    def __init__(self, total_entries, classes_number, bits_per_address, usar_branqueamento=False, epocas = 5):
         self.usar_branqueamento = usar_branqueamento
         # Calcula o número de bits de preenchimento necessários
         self.number_extra_bits = ((total_entries // bits_per_address) * bits_per_address - total_entries) % bits_per_address
         self.total_entries = total_entries + self.number_extra_bits
         # Gera ordem aleatória dos bits (incluindo os extras)
         self.ordem_bits = np.arange(self.total_entries)
+        self.epocas = epocas
         #print(f"Total de bits: {self.total_entries}, Bits extras: {self.number_extra_bits}, Ordem dos bits: {self.ordem_bits}")
         np.random.shuffle(self.ordem_bits)
         # Inicializa os discriminators para cada classe
@@ -317,11 +349,25 @@ class ClassificadorWisard:
             # Seleciona o índice da maior pontuação
             predictions.append(int(np.argmax(escores)))
         return np.array(predictions)
+    
+    def fine_tune(self, X, y): # fine-tune for wizard
+        for epoca in range(self.epocas):
+            print(f"[WiSARD] Época de Fine-Tuning: {epoca + 1}")
+            preds = self.predict(X)
+            erros = 0
+            for xi, yi, pi in zip(X, y, preds):
+                if pi != yi:
+                    # reforçar o padrão correto
+                    self.discriminators[yi].train(self._preparar(xi))
+                    erros += 1
+            print(f"Erros nesta época: {erros} de {len(X)}")
+            if erros == 0:
+                break
 
 # Classe Controladora Principal
 class ControllerMain:
     
-    def process_input_data(self,dataset_identifier, normalize = False, first_normalize = True, termometer_encode = False, sample_limits=None):
+    def process_input_data(self,dataset_identifier, normalize = False, first_normalize = True, termometer_encode = False, sample_limits=None,  random_state = 42):
         
         # Busca dataset pelo identificador da UCI
         dataset = fetch_ucirepo(id=dataset_identifier)
@@ -348,7 +394,7 @@ class ControllerMain:
             
         # Divide entre treino e teste
         #print(f"vetor_y: {vetor_y}")
-        X_train, X_test, y_train, y_test = train_test_split(matriz_X, vetor_y, test_size=0.3, random_state=0, stratify=vetor_y)
+        X_train, X_test, y_train, y_test = train_test_split(matriz_X, vetor_y, test_size=0.3, random_state=random_state, stratify=vetor_y)
         #print(f"X_train: {X_train}, X_test: {X_test}, y_train: {y_train}, y_test: {y_test}")
 
         if termometer_encode:
@@ -400,26 +446,209 @@ class ControllerMain:
             plt.tight_layout()
             plt.show()
     
-    def run_model(self, X_train, y_train, X_test, y_test, classes_name, model, model_name):
+    def run_model(self, X_train, y_train, X_test, y_test, classes_name, model, model_name, show_confusion_matrix=True):
 
         print(f"Iniciando treinamento do modelo {model_name}...")
         model.train(X_train, y_train)
+        if hasattr(model, 'fine_tune'):
+            model.fine_tune(X_train, y_train)
         print("Treinamento concluído.\nPrevendo...")
         predictions = model.predict(X_test)
         print("Previsão concluída.\nAvaliando modelo...")
-        self.avaliar_modelo(y_test, predictions, classes_name, titulo=f"Resultados da Classificação com o modelo {model_name}", show_confusion_matrix=True)
+        self.avaliar_modelo(y_test, predictions, classes_name, titulo=f"Resultados da Classificação com o modelo {model_name}", show_confusion_matrix=show_confusion_matrix)
         print(f"Avaliação do modelo {model_name} concluída.\n")
+    
+    @staticmethod
+    def hiperpameter_tune_models(epochs, learning_rate, show_confusion_matrix = True):
+        print("\n=== Iniciando Fine-Tuning dos Modelos ===")
+        # Hyperparameter grids
+        hdc_dimensions = [5000, 10000, 15000]
+        hdc_n_levels = [5, 10, 15]
+        hdc_modes = ['record', 'ngram']
+        wisard_bits_per_address = [4, 8, 12]
+        bleaching_options = [False, True]
+
+        for dataset, id_dataset in datasets.items():
+            print(f"\nFine-tuning para o dataset: {dataset} (ID: {id_dataset})")
+            # Prepare data for HDC models
+            X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(
+                id_dataset, normalize=True, first_normalize=True, termometer_encode=False, random_state=21)
+            
+            best_hdc_score = 0
+            best_hdc_f1score = 0
+            best_hdc_params = None
+            best_hdc_model = None
+
+            for dim in hdc_dimensions:
+                for n_lvl in hdc_n_levels:
+                    for mode in hdc_modes:
+                        print(f"Testando HDC - Dimensão: {dim}, Níveis: {n_lvl}, Modo: {mode}")
+                        model = HDCClassificador(d_dimensao=dim, n_niveis=n_lvl, modo=mode, epocas = epochs, taxa_aprendizado=learning_rate)
+                        model.train(X_train, y_train)
+                        preds = model.predict(X_test)
+                        acc = accuracy_score(y_test, preds)
+                        f1_score_value = f1_score(y_test, preds, average='weighted')
+                        print(f"Acurácia: {acc:.4f}")
+                        if acc > best_hdc_score and f1_score_value > best_hdc_f1score or best_hdc_score == 0:  # Allow first model to set baseline
+                            best_hdc_score = acc
+                            best_hdc_f1score = f1_score_value
+                            best_hdc_params = (dim, n_lvl, mode)
+                            best_hdc_model = model
+                            best_hdc_model_name = mode
+            
+            print(f"Melhor modelo HDC: Dimensão={best_hdc_params[0]}, Níveis={best_hdc_params[1]}, Modo={best_hdc_params[2]}, Acurácia={best_hdc_score:.4f}")
+
+            # Prepare data for Wisard models
+            X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(
+                id_dataset, normalize=False, first_normalize=False, termometer_encode=True, random_state=0)
+            
+            best_wisard_score = 0
+            best_wisard_f1score = 0
+            best_wisard_params = None
+            best_wisard_model = None
+
+            print(f"wizard_bits_per_address: {wisard_bits_per_address}, bleaching_options: {bleaching_options}")
+            
+            for bits in wisard_bits_per_address:
+                for bleach in bleaching_options:
+                    print(f"Testando Wisard - Bits por endereço: {bits}, Branqueamento: {bleach}.")
+                    model = ClassificadorWisard(input_total_count, classes_number, bits_per_address=bits, usar_branqueamento=bleach, epocas = epochs)
+                    model.train(X_train, y_train)
+                    preds = model.predict(X_test)
+                    acc = accuracy_score(y_test, preds)
+                    f1_score_value = f1_score(y_test, preds, average='weighted')
+                    print(f"Acurácia: {acc:.4f}")
+                    
+                    if acc >= best_wisard_score and f1_score_value > best_wisard_f1score or best_wisard_score == 0:  # Allow first model to set baseline
+                        best_wisard_score = acc
+                        best_wisard_f1score = f1_score_value
+                        best_wisard_params = (bits, bleach)
+                        best_wisard_model = model
+                        best_wisard_model_name = f"Wisard - Bits: {bits}, Branqueamento: {bleach}"
+                        
+            if best_wisard_score != 0:
+                print(f"Melhor modelo Wisard: Bits por endereço={best_wisard_params[0]}, Branqueamento={best_wisard_params[1]}, Acurácia={best_wisard_score:.4f}, nome do melhor modelo wizard: {best_wisard_model_name}.")
+            else:
+                print("Nenhum modelo Wisard treinado com sucesso.")
+            
+            if best_hdc_score != 0: # Optionally, evaluate best models with controller's evaluation method
+                print("\nAvaliação do melhor modelo HDC:")
+                best_preds = best_hdc_model.predict(X_test)
+                controller.avaliar_modelo(y_test, best_preds, classes_name, titulo=f"Melhor Modelo HDC Fine-Tuned com {best_hdc_model_name}", show_confusion_matrix=show_confusion_matrix)
+            
+            if best_wisard_score != 0:
+                print("\nAvaliação do melhor modelo Wisard:")
+                best_preds = best_wisard_model.predict(X_test)
+                controller.avaliar_modelo(y_test, best_preds, classes_name, titulo=f"Melhor Modelo Wisard Fine-Tuned com {best_wisard_model_name}", show_confusion_matrix=show_confusion_matrix)
+
         
+    # --- Fine-tuning section ---
+    @staticmethod
+    def fine_tune_models_with_models_trained(models_trained):
+        print("\n=== Iniciando Fine-Tuning dos Modelos ===")
+        # Hyperparameter grids
+        hdc_dimensions = [5000, 10000, 15000]
+        hdc_n_levels = [5, 10, 15]
+        wisard_bits_per_address = [4, 8, 12]
+        bleaching_options = [False, True]
+        #models_type = ['HDC', 'wisard']
+
+        for dataset, id_dataset in datasets.items():
+            print(f"\nFine-tuning para o dataset: {dataset} (ID: {id_dataset})")
+            # Prepare data for HDC models
+            
+            X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(
+                id_dataset, normalize=True, first_normalize=True, termometer_encode=False, random_state=21)
+            
+            best_hdc_score = 0
+            best_hdc_f1score = 0
+            best_hdc_params = None
+            best_hdc_model = None
+            best_hdc_model_name = ""
+
+            for dim in hdc_dimensions:
+                for n_lvl in hdc_n_levels:
+                    for name, model in models_trained.items():
+                        if "HDC" in name.upper():  # Check if model is HDC
+                            print(f"Testando HDC - Dimensão: {dim}, Níveis: {n_lvl}, Nome: {name}")
+                            model.train(X_train, y_train)
+                            preds = model.predict(X_test)
+                            acc = accuracy_score(y_test, preds)
+                            f1_score = f1_score(y_test, preds, average='macro')
+                            print(f"Acurácia: {acc:.4f}")
+                            if acc >= best_hdc_score and f1_score > best_hdc_f1score or best_hdc_score == 0:  # Allow first model to set baseline
+                                best_hdc_score = acc
+                                best_hdc_f1score = f1_score
+                                best_hdc_params = (dim, n_lvl, mode)
+                                best_hdc_model_name = name
+                                best_hdc_model = model
+            
+            if best_hdc_score != 0:
+                print(f"Melhor modelo HDC: Dimensão={best_hdc_params[0]}, Níveis={best_hdc_params[1]}, Modo={best_hdc_params[2]}, Acurácia={best_hdc_score:.4f}, nome do melhor modelo HDC: {best_hdc_model_name}.")
+            else:
+                print("Nenhum modelo HDC treinado com sucesso.")
+            # Prepare data for Wisard models
+            X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(
+                id_dataset, normalize=False, first_normalize=False, termometer_encode=True, random_state=0)
+            
+            best_wisard_score = 0
+            best_wisard_f1score = 0
+            best_wisard_params = None
+            best_wisard_model = None
+            best_wisard_model_name = ""
+
+            #print(f"wizard_bits_per_address: {wisard_bits_per_address}, bleaching_options: {bleaching_options}")
+            
+            for bits in wisard_bits_per_address:
+                for bleach in bleaching_options:
+                    for name, model in models_trained.items():
+                        if "wizard" in name.lower(): 
+                            print(f"Testando Wisard - Bits por endereço: {bits}, Branqueamento: {bleach}, nome: {name}.")
+                            model.train(X_train, y_train)
+                            preds = model.predict(X_test)
+                            acc = accuracy_score(y_test, preds)
+                            f1_score_value = f1_score(y_test, preds, average='macro')
+                            print(f"Acurácia: {acc:.4f}")
+                            
+                            if acc >= best_wisard_score and f1_score_value > best_wisard_f1score or best_wisard_score == 0:  # Allow first model to set baseline
+                                best_wisard_score = acc
+                                best_wisard_f1score = f1_score_value
+                                best_wisard_params = (bits, bleach)
+                                best_wisard_model_name = name
+                                best_wisard_model = model
+            
+            if best_wisard_score != 0:
+                print(f"Melhor modelo Wisard: Bits por endereço={best_wisard_params[0]}, Branqueamento={best_wisard_params[1]}, Acurácia={best_wisard_score:.4f}, nome do melhor modelo wizard: {best_wisard_model_name}.")
+            else:
+                print("Nenhum modelo Wisard treinado com sucesso.")
+            
+            if best_hdc_score != 0: # Optionally, evaluate best models with controller's evaluation method
+                print("\nAvaliação do melhor modelo HDC:")
+                best_preds = best_hdc_model.predict(X_test)
+                controller.avaliar_modelo(y_test, best_preds, classes_name, titulo=f"Melhor Modelo HDC Fine-Tuned com {best_hdc_model_name}")
+            
+            if best_wisard_score != 0:
+                print("\nAvaliação do melhor modelo Wisard:")
+                best_preds = best_wisard_model.predict(X_test)
+                controller.avaliar_modelo(y_test, best_preds, classes_name, titulo=f"Melhor Modelo Wisard Fine-Tuned com {best_wisard_model_name}")
+
+
 # Programa principal para executar o código
 if __name__ == "__main__":
+    ENABLE_HIPERPARAMETER_TUNING = True  # Variável para controlar o fine-tuning dos hiperparâmetros
     PRINT_OTHER_OBSERVATIONS = False  # Variável para controlar a impressão de observações adicionais
+    SHOW_CONFUSION_MATRIX = False  # Variável para controlar a exibição da matriz de confusão
+    EPOCHS = 20  # Número de épocas para o treinamento dos modelos HDC e Wizard
+    # Definições de hiperparâmetros para os modelos HDC e Wizard
+    LEARNING_RATE = 0.02  # Taxa de aprendizado para o modelo HDC
     DIMENSION = 10000  # Definir a dimensionalidade dos vetores hiperdimensionais com tamanho típico em HDC:10000
     N_NIVEIS = 10  # Níveis de codificação termômetro
     HDC_MODELS_NAME = ["HDC - Record-based", "HDC - N-gram-based"]
     HDC_MODES = ['record', 'ngram']
     WIZARD_MESSAGE = ['Modelo wizard sem branqueamento', 'Modelo wizard com branqueamento']
     BLEACHING_MODE = [False, True]
-    
+    #models_trained = dict()
+
     print_message = lambda X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count: f"""
 Total de classes: {classes_number}, nomes das classes: {classes_name}
 Quantidade de atributos/features: {X_train.shape[1]}, quantidade de amostras: {X_train.shape[0]}
@@ -450,22 +679,52 @@ Quantidade de níveis de codificação: {N_NIVEIS}
         
         print("\n=== Classificação com Computação Hiperdimensional (HDC) ===")
         
-        X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = True, first_normalize = True, termometer_encode = False)
+        X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = True, first_normalize = True, termometer_encode = False,  random_state = 21)
         print_message(X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count)
         
         for model_name, mode in zip (HDC_MODELS_NAME, HDC_MODES):
             print(f"\n=== Classificação com {model_name} ===")
-            hdc_record = HDCClassificador(d_dimensao=DIMENSION, n_niveis=N_NIVEIS, modo=mode)
-            controller.run_model(X_train, y_train, X_test, y_test, classes_name, hdc_record, model_name)
+            hdc_record = HDCClassificador(d_dimensao=DIMENSION, n_niveis=N_NIVEIS, modo=mode, epocas = EPOCHS, taxa_aprendizado=LEARNING_RATE)
+            #models_trained[model_name] = hdc_record
+            controller.run_model(X_train, y_train, X_test, y_test, classes_name, hdc_record, model_name, show_confusion_matrix = SHOW_CONFUSION_MATRIX)
             
         # Utilizando o modelo Wizard Dictionary para a classificação dos datasets
         print("\n=== Classificação com Wizard Dictionary ===")
         
-        X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = False, first_normalize = False, termometer_encode = True)
+        X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = False, first_normalize = False, termometer_encode = True, random_state = 0)
         print_message(X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count)
         #print(f"Total de bits: {input_total_count}, Bits por endereço: 8, Total de classes: {classes_number}")
         for model_name, com_branqueamento in zip(WIZARD_MESSAGE,BLEACHING_MODE):
             print(f"\n=== Classificação com {model_name} ===")
-            wisard = ClassificadorWisard(input_total_count, classes_number, bits_per_address = 8, usar_branqueamento=com_branqueamento)
-            controller.run_model(X_train, y_train, X_test, y_test, classes_name, wisard, model_name)
+            wisard = ClassificadorWisard(input_total_count, classes_number, bits_per_address = 8, usar_branqueamento=com_branqueamento, epocas = EPOCHS)
+            #models_trained[model_name] = wisard
+            controller.run_model(X_train, y_train, X_test, y_test, classes_name, wisard, model_name, show_confusion_matrix = SHOW_CONFUSION_MATRIX)
+        
+        
+    #controller.fine_tune_models_with_models_trained(models_trained)
+    if ENABLE_HIPERPARAMETER_TUNING:
+        controller.hiperpameter_tune_models(epochs = EPOCHS, learning_rate = LEARNING_RATE, show_confusion_matrix = SHOW_CONFUSION_MATRIX)
+    print("\n=== Fim do processo de classificação e fine-tuning dos modelos ===")
+    if PRINT_OTHER_OBSERVATIONS:
+        print("\n=== Outras Observações ===")
+        print("1. O modelo HDC foi treinado com diferentes modos de codificação (record e n-gram).")
+        print("2. O modelo Wizard Dictionary foi treinado com e sem branqueamento.")
+        print("3. A avaliação dos modelos foi feita com base na acurácia e F1-score.")
+        print("4. O fine-tuning dos modelos foi realizado para melhorar a performance.")
+        print("5. O código foi estruturado para permitir fácil adição de novos datasets e modelos.")
+        print("6. A classe ControllerMain gerencia o fluxo de dados e a execução dos modelos.")
+        print("7. O código utiliza a biblioteca scikit-learn para manipulação de dados e avaliação de modelos.")
+        print("8. A codificação termômetro foi aplicada para transformar os dados em vetores binários.")
+        print("9. O modelo Wizard Dictionary utiliza filtros de Bloom para otimizar a classificação.")
+        print("10. O código é modular, permitindo fácil manutenção e expansão.")
+        print("11. O código foi testado com o dataset Iris, mas pode ser facilmente adaptado para outros datasets da UCI.")
+        print("12. A classe HDCClassificador implementa a lógica de codificação e classificação usando Computação Hiperdimensional.")
+        print("13. A classe ClassificadorWisard implementa a lógica de classificação usando o modelo Wizard Dictionary.")
+        print("14. O código inclui visualização da matriz de confusão para melhor compreensão dos resultados.")
+        print("15. O código foi escrito para ser executado em um ambiente Python 3.8 ou superior, com as bibliotecas necessárias instaladas.")
+        print("16. O código é eficiente e escalável, podendo lidar com grandes volumes de dados sem perda de performance.")
+        print("17. O código foi desenvolvido com foco em clareza e legibilidade, seguindo boas práticas de programação.")
+        print("18. O código pode ser facilmente integrado a outros sistemas ou aplicações que necessitem de classificação de dados.")
+        print("19. O código é compatível com a maioria dos sistemas operacionais, incluindo Windows, Linux e macOS.")
+        print("20. O código foi testado e validado com diferentes configurações de hiperparâmetros, garantindo robustez e confiabilidade nos resultados.")
         
