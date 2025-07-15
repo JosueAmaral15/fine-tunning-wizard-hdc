@@ -184,6 +184,9 @@ class HDCClassificador:
             predicoes.append(melhor_classe)
         return predicoes
     
+    
+    
+    
 # — encoder Termômetro —
 class TermometerEncoder:
     def __init__(self, quantidade_bits):
@@ -270,7 +273,7 @@ class ClassificadorWisard:
         self.total_entries = total_entries + self.number_extra_bits
         # Gera ordem aleatória dos bits (incluindo os extras)
         self.ordem_bits = np.arange(self.total_entries)
-        print(f"Total de bits: {self.total_entries}, Bits extras: {self.number_extra_bits}, Ordem dos bits: {self.ordem_bits}")
+        #print(f"Total de bits: {self.total_entries}, Bits extras: {self.number_extra_bits}, Ordem dos bits: {self.ordem_bits}")
         np.random.shuffle(self.ordem_bits)
         # Inicializa os discriminators para cada classe
         self.discriminators = [
@@ -284,8 +287,11 @@ class ClassificadorWisard:
         return vetor_preenchido
 
     def train(self, matriz_binaria, vetor_classes):
+        #print("TRAIN")
         # Treina os discriminators com os vetores
+        #print(f"Treinando {len(self.discriminators)} discriminadores com {len(matriz_binaria)} vetores. Vetores por classe: {vetor_classes}.\nmatriz_binaria: {matriz_binaria}.")
         for vetor, classe in zip(matriz_binaria, vetor_classes):
+            #print(f"Treinando vetor ({len(vetor)}): {vetor}, classe: {classe}.")
             self.discriminators[classe].train(self._preparar(vetor))
 
         if self.usar_branqueamento:
@@ -300,6 +306,7 @@ class ClassificadorWisard:
                 discriminator.bran = self.limiar_branqueamento
 
     def predict(self, matriz_binaria):
+        #print("PREDICT")
         predictions = []
         for vetor in matriz_binaria:
             # Calcula escore de todos os discriminators
@@ -329,8 +336,7 @@ class ControllerMain:
         #nomes_colunas = dataset.data.features.columns.tolist()
         classes_name = dataset.data.targets.iloc[:,0].astype('category').cat.categories.tolist()
         classes_number = len(np.unique(vetor_y))
-        input_total_count = len(matriz_X)
-
+                
         # Limitar a quantidade de amostras, se desejado
         if sample_limits is not None:
             matriz_X = matriz_X[:sample_limits]
@@ -369,6 +375,11 @@ class ControllerMain:
                 X_train = scaler.fit_transform(X_train)
                 X_test = scaler.transform(X_test)
         
+        if termometer_encode:
+            input_total_count = X_train.shape[1]
+        else:
+            input_total_count = len(matriz_X)
+        
         return X_train, X_test, y_train, y_test, classes_name, classes_number, Counter(y_train), Counter(y_test), input_total_count
     
     def avaliar_modelo(self, real_vector, vector_predicted, classes_name, titulo="Resultados da Classificação", show_confusion_matrix=True):
@@ -396,7 +407,7 @@ class ControllerMain:
         print("Treinamento concluído.\nPrevendo...")
         predictions = model.predict(X_test)
         print("Previsão concluída.\nAvaliando modelo...")
-        self.avaliar_modelo(y_test, predictions, classes_name)
+        self.avaliar_modelo(y_test, predictions, classes_name, titulo=f"Resultados da Classificação com o modelo {model_name}", show_confusion_matrix=True)
         print(f"Avaliação do modelo {model_name} concluída.\n")
         
 # Programa principal para executar o código
@@ -452,7 +463,7 @@ Quantidade de níveis de codificação: {N_NIVEIS}
         
         X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = False, first_normalize = False, termometer_encode = True)
         print_message(X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count)
-        
+        #print(f"Total de bits: {input_total_count}, Bits por endereço: 8, Total de classes: {classes_number}")
         for model_name, com_branqueamento in zip(WIZARD_MESSAGE,BLEACHING_MODE):
             print(f"\n=== Classificação com {model_name} ===")
             wisard = ClassificadorWisard(input_total_count, classes_number, bits_per_address = 8, usar_branqueamento=com_branqueamento)
