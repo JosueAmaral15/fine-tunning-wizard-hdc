@@ -650,6 +650,8 @@ if __name__ == "__main__":
     #models_trained = dict()
 
     message_to_print = lambda dataset, id_dataset, dimension, n_niveis, X_train, X_test, classes_name, classes_number, input_total_count: f"""
+Nome da classe: {dataset}, id da classe: {id_dataset}
+Dimensão dos vetores: {dimension}, Quantidade de níveis de codificação: {n_niveis}
 Total de classes: {classes_number}, nomes das classes: {classes_name}
 Quantidade de atributos, colunas ou features: {X_train.shape[1]}
 Quantidade de amostras de treino: {len(X_train)}, quantidade de amostras de teste: {len(X_test)}
@@ -660,9 +662,9 @@ total de amostras: {input_total_count}
     
     datasets = {
         'iris': 53,
-        #'adult': 2,
-        #'secondary_mushroom' : 848,
-        #'cdc_diabetes_health': 891,
+        'adult': 2,
+        'secondary_mushroom' : 848,
+        'cdc_diabetes_health': 891,
     }
     
     controller = ControllerMain()
