@@ -638,7 +638,7 @@ if __name__ == "__main__":
     ENABLE_HIPERPARAMETER_TUNING = True  # Variável para controlar o fine-tuning dos hiperparâmetros
     PRINT_OTHER_OBSERVATIONS = True  # Variável para controlar a impressão de observações adicionais
     SHOW_CONFUSION_MATRIX = True  # Variável para controlar a exibição da matriz de confusão
-    EPOCHS = 10  # Número de épocas para o treinamento dos modelos HDC e Wizard
+    EPOCHS = 5  # Número de épocas para o treinamento dos modelos HDC e Wizard
     # Definições de hiperparâmetros para os modelos HDC e Wizard
     LEARNING_RATE = 0.02  # Taxa de aprendizado para o modelo HDC
     DIMENSION = 10000  # Definir a dimensionalidade dos vetores hiperdimensionais com tamanho típico em HDC:10000
@@ -649,59 +649,45 @@ if __name__ == "__main__":
     BLEACHING_MODE = [False, True]
     #models_trained = dict()
 
-    print_message = lambda X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count: f"""
+    message_to_print = lambda dataset, id_dataset, dimension, n_niveis, X_train, X_test, classes_name, classes_number, input_total_count: f"""
 Total de classes: {classes_number}, nomes das classes: {classes_name}
-Quantidade de atributos/features: {X_train.shape[1]}, quantidade de amostras: {X_train.shape[0]}
+Quantidade de atributos, colunas ou features: {X_train.shape[1]}
 Quantidade de amostras de treino: {len(X_train)}, quantidade de amostras de teste: {len(X_test)}
-Total de amostras: {len(X_train) + len(X_test)}
-total de colunas/features: {input_total_count}
-Quantidade de amostras de treino por classe: {quantity_y_train}
-Quantidade de amostras de teste por classe: {quantity_y_test}
+total de amostras: {input_total_count}
         """
     
     print(f"Dimensão dos vetores: {DIMENSION}")
     
     datasets = {
         'iris': 53,
-        'adult': 2,
-        'secondary_mushroom' : 848,
-        'cdc_diabetes_health': 891,
+        #'adult': 2,
+        #'secondary_mushroom' : 848,
+        #'cdc_diabetes_health': 891,
     }
     
     controller = ControllerMain()
     
     for dataset, id_dataset in datasets.items():
-        print(f"""
-Nome da classe: {dataset}, id da classe: {id_dataset}
-Dimensão dos vetores: {DIMENSION}
-Quantidade de níveis de codificação: {N_NIVEIS}
-        """)
         
+
+        # Utilizando o modelo HDC para a classificação dos datasets
         print("\n=== Classificação com Computação Hiperdimensional (HDC) ===")
-        
         X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = True, first_normalize = True, termometer_encode = False,  random_state = 21)
-        print_message(X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count)
-        
+        print(message_to_print(dataset, id_dataset, DIMENSION, N_NIVEIS, X_train, X_test, ", ".join(classes_name), classes_number, input_total_count))
         for model_name, mode in zip (HDC_MODELS_NAME, HDC_MODES):
             print(f"\n=== Classificação com {model_name} ===")
             hdc_record = HDCClassificador(d_dimensao=DIMENSION, n_niveis=N_NIVEIS, modo=mode, epocas = EPOCHS, taxa_aprendizado=LEARNING_RATE)
-            #models_trained[model_name] = hdc_record
             controller.run_model(X_train, y_train, X_test, y_test, classes_name, hdc_record, model_name, show_confusion_matrix = SHOW_CONFUSION_MATRIX)
             
         # Utilizando o modelo Wizard Dictionary para a classificação dos datasets
         print("\n=== Classificação com Wizard Dictionary ===")
-        
         X_train, X_test, y_train, y_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count = controller.process_input_data(id_dataset, normalize = False, first_normalize = False, termometer_encode = True, random_state = 0)
-        print_message(X_train, X_test, classes_name, classes_number, quantity_y_train, quantity_y_test, input_total_count)
-        #print(f"Total de bits: {input_total_count}, Bits por endereço: 8, Total de classes: {classes_number}")
+        print(message_to_print(dataset, id_dataset, DIMENSION, N_NIVEIS, X_train, X_test, ", ".join(classes_name), classes_number, input_total_count))
         for model_name, com_branqueamento in zip(WIZARD_MESSAGE,BLEACHING_MODE):
             print(f"\n=== Classificação com {model_name} ===")
             wisard = ClassificadorWisard(input_total_count, classes_number, bits_per_address = 8, usar_branqueamento=com_branqueamento, epocas = EPOCHS)
-            #models_trained[model_name] = wisard
             controller.run_model(X_train, y_train, X_test, y_test, classes_name, wisard, model_name, show_confusion_matrix = SHOW_CONFUSION_MATRIX)
-        
-        
-    #controller.fine_tune_models_with_models_trained(models_trained)
+    
     if ENABLE_HIPERPARAMETER_TUNING:
         controller.hiperpameter_tune_models(epochs = EPOCHS, learning_rate = LEARNING_RATE, show_confusion_matrix = SHOW_CONFUSION_MATRIX)
     print("\n=== Fim do processo de classificação e fine-tuning dos modelos ===")
