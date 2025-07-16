@@ -636,9 +636,9 @@ class ControllerMain:
 # Programa principal para executar o código
 if __name__ == "__main__":
     ENABLE_HIPERPARAMETER_TUNING = True  # Variável para controlar o fine-tuning dos hiperparâmetros
-    PRINT_OTHER_OBSERVATIONS = False  # Variável para controlar a impressão de observações adicionais
-    SHOW_CONFUSION_MATRIX = False  # Variável para controlar a exibição da matriz de confusão
-    EPOCHS = 5  # Número de épocas para o treinamento dos modelos HDC e Wizard
+    PRINT_OTHER_OBSERVATIONS = True  # Variável para controlar a impressão de observações adicionais
+    SHOW_CONFUSION_MATRIX = True  # Variável para controlar a exibição da matriz de confusão
+    EPOCHS = 10  # Número de épocas para o treinamento dos modelos HDC e Wizard
     # Definições de hiperparâmetros para os modelos HDC e Wizard
     LEARNING_RATE = 0.02  # Taxa de aprendizado para o modelo HDC
     DIMENSION = 10000  # Definir a dimensionalidade dos vetores hiperdimensionais com tamanho típico em HDC:10000
@@ -663,9 +663,9 @@ Quantidade de amostras de teste por classe: {quantity_y_test}
     
     datasets = {
         'iris': 53,
-        #'adult': 2,
-        #'secondary_mushroom' : 848,
-        #'cdc_diabetes_health': 891,
+        'adult': 2,
+        'secondary_mushroom' : 848,
+        'cdc_diabetes_health': 891,
     }
     
     controller = ControllerMain()
@@ -706,25 +706,25 @@ Quantidade de níveis de codificação: {N_NIVEIS}
         controller.hiperpameter_tune_models(epochs = EPOCHS, learning_rate = LEARNING_RATE, show_confusion_matrix = SHOW_CONFUSION_MATRIX)
     print("\n=== Fim do processo de classificação e fine-tuning dos modelos ===")
     if PRINT_OTHER_OBSERVATIONS:
-        print("\n=== Outras Observações ===")
-        print("1. O modelo HDC foi treinado com diferentes modos de codificação (record e n-gram).")
-        print("2. O modelo Wizard Dictionary foi treinado com e sem branqueamento.")
-        print("3. A avaliação dos modelos foi feita com base na acurácia e F1-score.")
-        print("4. O fine-tuning dos modelos foi realizado para melhorar a performance.")
-        print("5. O código foi estruturado para permitir fácil adição de novos datasets e modelos.")
-        print("6. A classe ControllerMain gerencia o fluxo de dados e a execução dos modelos.")
-        print("7. O código utiliza a biblioteca scikit-learn para manipulação de dados e avaliação de modelos.")
-        print("8. A codificação termômetro foi aplicada para transformar os dados em vetores binários.")
-        print("9. O modelo Wizard Dictionary utiliza filtros de Bloom para otimizar a classificação.")
-        print("10. O código é modular, permitindo fácil manutenção e expansão.")
-        print("11. O código foi testado com o dataset Iris, mas pode ser facilmente adaptado para outros datasets da UCI.")
-        print("12. A classe HDCClassificador implementa a lógica de codificação e classificação usando Computação Hiperdimensional.")
-        print("13. A classe ClassificadorWisard implementa a lógica de classificação usando o modelo Wizard Dictionary.")
-        print("14. O código inclui visualização da matriz de confusão para melhor compreensão dos resultados.")
-        print("15. O código foi escrito para ser executado em um ambiente Python 3.8 ou superior, com as bibliotecas necessárias instaladas.")
-        print("16. O código é eficiente e escalável, podendo lidar com grandes volumes de dados sem perda de performance.")
-        print("17. O código foi desenvolvido com foco em clareza e legibilidade, seguindo boas práticas de programação.")
-        print("18. O código pode ser facilmente integrado a outros sistemas ou aplicações que necessitem de classificação de dados.")
-        print("19. O código é compatível com a maioria dos sistemas operacionais, incluindo Windows, Linux e macOS.")
-        print("20. O código foi testado e validado com diferentes configurações de hiperparâmetros, garantindo robustez e confiabilidade nos resultados.")
-        
+        print("""\n=== Outras Observações ===
+        1. O modelo HDC foi treinado com diferentes modos de codificação (record e n-gram).
+        2. O modelo Wizard Dictionary foi treinado com e sem branqueamento.
+        3. A avaliação dos modelos foi feita com base na acurácia e F1-score.
+        4. O fine-tuning dos modelos foi realizado para melhorar a performance.
+        5. O código foi estruturado para permitir fácil adição de novos datasets e modelos.
+        6. A classe ControllerMain gerencia o fluxo de dados e a execução dos modelos.
+        7. O código utiliza a biblioteca scikit-learn para manipulação de dados e avaliação de modelos.
+        8. A codificação termômetro foi aplicada para transformar os dados em vetores binários.
+        9. O modelo Wizard Dictionary utiliza filtros de Bloom para otimizar a classificação.
+        10. O código é modular, permitindo fácil manutenção e expansão.
+        11. O código foi testado com o dataset Iris, mas pode ser facilmente adaptado para outros datasets da UCI.
+        12. A classe HDCClassificador implementa a lógica de codificação e classificação usando Computação Hiperdimensional.
+        13. A classe ClassificadorWisard implementa a lógica de classificação usando o modelo Wizard Dictionary.
+        14. O código inclui visualização da matriz de confusão para melhor compreensão dos resultados.
+        15. O código foi escrito para ser executado em um ambiente Python 3.8 ou superior, com as bibliotecas necessárias instaladas.
+        16. O código é eficiente e escalável, podendo lidar com grandes volumes de dados sem perda de performance.
+        17. O código foi desenvolvido com foco em clareza e legibilidade, seguindo boas práticas de programação.
+        18. O código pode ser facilmente integrado a outros sistemas ou aplicações que necessitem de classificação de dados.
+        19. O código é compatível com a maioria dos sistemas operacionais, incluindo Windows, Linux e macOS.
+        20. O código foi testado e validado com diferentes configurações de hiperparâmetros, garantindo robustez e confiabilidade nos resultados.
+        """)
